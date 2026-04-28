@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Queuing Simulation — Almas Shahriar</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#05080f;--bg2:#0b0f1a;--bg3:#101525;--bg4:#161d2e;
+  --border:#1a2236;--border2:#222d45;
+  --accent:#6366f1;--a2:#06b6d4;--green:#22d3ee;--red:#f43f5e;--yellow:#fbbf24;--orange:#fb923c;
+  --text:#e2e8f8;--muted:#4a5680;--subtle:#7a89b0;
+  --font:'Space Grotesk',sans-serif;--mono:'IBM Plex Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;overflow-x:hidden;}
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse 60% 40% at 20% 20%,rgba(99,102,241,0.07),transparent),
+    radial-gradient(ellipse 50% 40% at 80% 80%,rgba(6,182,212,0.06),transparent);
+}
+.page{position:relative;z-index:1;max-width:1300px;margin:0 auto;padding:0 32px 100px;}
+
+/* HEADER */
+header{padding:56px 0 44px;border-bottom:1px solid var(--border2);margin-bottom:48px;}
+.eyebrow{font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:4px;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:10px;}
+.eyebrow::before{content:'▶';font-size:8px;}
+h1{font-size:clamp(30px,4.5vw,52px);font-weight:700;line-height:1.08;letter-spacing:-1px;}
+h1 em{font-style:normal;
+  background:linear-gradient(135deg,var(--accent),var(--a2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.hdr-row{margin-top:20px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.chip{font-family:var(--mono);font-size:10px;padding:4px 12px;background:var(--bg3);border:1px solid var(--border2);color:var(--muted);letter-spacing:1px;}
+.chip.hi{border-color:var(--accent);color:var(--accent);background:rgba(99,102,241,0.08);}
+
+/* KPI */
+.kpi-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-bottom:48px;}
+.kpi{background:var(--bg2);border:1px solid var(--border2);padding:22px 20px;position:relative;}
+.kpi-bar{position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--a2));}
+.kpi-bar.g{background:linear-gradient(90deg,var(--green),#10b981);}
+.kpi-bar.r{background:linear-gradient(90deg,var(--red),#f97316);}
+.kpi-bar.y{background:linear-gradient(90deg,var(--yellow),var(--orange));}
+.kpi-label{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+.kpi-val{font-size:30px;font-weight:700;line-height:1;letter-spacing:-1px;}
+.kpi-sub{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:5px;}
+
+/* SECTION */
+.section{margin-bottom:56px;}
+.section-head{display:flex;align-items:center;gap:14px;margin-bottom:24px;padding-bottom:14px;border-bottom:1px solid var(--border2);}
+.section-num{font-family:var(--mono);font-size:10px;color:var(--accent);background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);padding:3px 10px;letter-spacing:2px;}
+.section-title{font-size:17px;font-weight:600;letter-spacing:-0.3px;}
+.section-desc{font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:auto;}
+
+/* SCENARIO SELECTOR */
+.sc-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;}
+.sc-tab{font-family:var(--mono);font-size:11px;padding:7px 14px;background:var(--bg3);border:1px solid var(--border2);color:var(--muted);cursor:pointer;transition:all .2s;letter-spacing:0.5px;}
+.sc-tab:hover{border-color:var(--accent);color:var(--accent);}
+.sc-tab.active{background:rgba(99,102,241,0.15);border-color:var(--accent);color:var(--accent);}
+
+/* CHARTS */
+.chart-grid{display:grid;gap:16px;}
+.chart-grid.c2{grid-template-columns:1fr 1fr;}
+.chart-grid.c3{grid-template-columns:1fr 1fr 1fr;}
+@media(max-width:800px){.chart-grid.c2,.chart-grid.c3{grid-template-columns:1fr;}}
+.chart-box{background:var(--bg2);border:1px solid var(--border2);padding:22px;}
+.chart-label{font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:14px;}
+.chart-wrap{position:relative;height:230px;}
+
+/* METRIC CARDS */
+.metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+@media(max-width:800px){.metric-grid{grid-template-columns:repeat(2,1fr);}}
+.metric-card{background:var(--bg3);border:1px solid var(--border2);padding:16px 18px;}
+.metric-label{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.metric-val{font-size:22px;font-weight:700;letter-spacing:-0.5px;}
+.metric-sub{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:3px;}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border2);}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:1000px;}
+thead{background:var(--bg3);}
+th{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);padding:11px 14px;text-align:left;border-bottom:1px solid var(--border2);white-space:nowrap;}
+td{padding:10px 14px;border-bottom:1px solid var(--border);}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(99,102,241,0.04);}
+td.mono{font-family:var(--mono);font-size:11px;}
+td.accent{color:var(--accent);font-weight:600;}
+
+/* FORMULA BOX */
+.formula-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+@media(max-width:700px){.formula-grid{grid-template-columns:1fr;}}
+.formula-box{background:var(--bg3);border:1px solid var(--border2);border-left:3px solid var(--accent);padding:18px 20px;}
+.formula-title{font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:10px;}
+.formula-eq{font-family:var(--mono);font-size:13px;color:var(--text);line-height:1.8;}
+.formula-desc{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:8px;line-height:1.7;}
+
+/* FOOTER */
+footer{margin-top:64px;padding-top:28px;border-top:1px solid var(--border2);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+.fn{font-size:14px;font-weight:700;letter-spacing:0.5px;}
+.fn span{background:linear-gradient(135deg,var(--accent),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.flinks{display:flex;gap:16px;}
+.flinks a{font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;transition:color .2s;}
+.flinks a:hover{color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <div class="eyebrow">Simulation & Modeling · IPE · BUET</div>
+  <h1>Queuing System <em>Simulation</em><br/>M/M/c Model — Hospital Outpatient</h1>
+  <div class="hdr-row">
+    <span class="chip hi">6 Scenarios</span>
+    <span class="chip hi">Discrete-Event Simulation</span>
+    <span class="chip">Erlang C Formula</span>
+    <span class="chip">8-Hour Shift · 480 min</span>
+    <span class="chip">Generated 28 Apr 2026 · 00:32</span>
+  </div>
+</header>
+
+<!-- KPIs from best scenario (Optimal Config) -->
+<div class="kpi-strip">
+  <div class="kpi">
+    <div class="kpi-bar"></div>
+    <div class="kpi-label">Scenarios Simulated</div>
+    <div class="kpi-val">6</div>
+    <div class="kpi-sub">M/M/c configurations</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-bar g"></div>
+    <div class="kpi-label">Simulation Duration</div>
+    <div class="kpi-val">480</div>
+    <div class="kpi-sub">minutes per scenario</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-bar y"></div>
+    <div class="kpi-label">Arrival Rates</div>
+    <div class="kpi-val">3–18</div>
+    <div class="kpi-sub">patients/hour tested</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-bar r"></div>
+    <div class="kpi-label">Unstable Scenarios</div>
+    <div class="kpi-val">1</div>
+    <div class="kpi-sub">ρ ≥ 1 (overloaded)</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-bar g"></div>
+    <div class="kpi-label">Best Avg Wait</div>
+    <div class="kpi-val">1.4m</div>
+    <div class="kpi-sub">optimal configuration</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-bar"></div>
+    <div class="kpi-label">Service Rate (μ)</div>
+    <div class="kpi-val">5/hr</div>
+    <div class="kpi-sub">12 min avg service</div>
+  </div>
+</div>
+
+<!-- SECTION 1: FORMULAS -->
+<div class="section">
+  <div class="section-head">
+    <span class="section-num">01</span>
+    <span class="section-title">M/M/c Analytical Framework</span>
+    <span class="section-desc">Kendall notation · Poisson arrivals · Exponential service</span>
+  </div>
+  <div class="formula-grid">
+    <div class="formula-box">
+      <div class="formula-title">Traffic Intensity (ρ)</div>
+      <div class="formula-eq">ρ = λ / (c · μ)</div>
+      <div class="formula-desc">
+        λ = arrival rate (pts/hr)<br/>
+        μ = service rate (pts/hr)<br/>
+        c = number of servers<br/>
+        Stable only if ρ &lt; 1
+      </div>
+    </div>
+    <div class="formula-box">
+      <div class="formula-title">Erlang C — P(wait)</div>
+      <div class="formula-eq">C(c,ρ) = P(arriving patient waits)<br/>= [(cρ)^c / c!(1-ρ)] · P₀</div>
+      <div class="formula-desc">
+        P₀ = probability system is empty<br/>
+        Higher C → more patients wait
+      </div>
+    </div>
+    <div class="formula-box">
+      <div class="formula-title">Mean Queue Length (Lq)</div>
+      <div class="formula-eq">Lq = C(c,ρ) · ρ / (1 - ρ)</div>
+      <div class="formula-desc">
+        Average number of patients waiting<br/>
+        (not including those in service)
+      </div>
+    </div>
+    <div class="formula-box">
+      <div class="formula-title">Mean Wait & Sojourn (Wq, W)</div>
+      <div class="formula-eq">Wq = Lq / λ<br/>W  = Wq + 1/μ</div>
+      <div class="formula-desc">
+        Wq = avg time waiting in queue<br/>
+        W  = total time in system (wait + service)<br/>
+        Little's Law: L = λ · W
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 2: SCENARIO DRILL-DOWN -->
+<div class="section">
+  <div class="section-head">
+    <span class="section-num">02</span>
+    <span class="section-title">Scenario Drill-Down</span>
+    <span class="section-desc">Hourly arrivals · Queue length · Wait time per scenario</span>
+  </div>
+  <div class="sc-tabs" id="scTabs">
+    <div class="sc-tab active" onclick="selectScenario(0)">Morning Rush</div><div class="sc-tab" onclick="selectScenario(1)">Afternoon Calm</div><div class="sc-tab" onclick="selectScenario(2)">Evening Surge</div><div class="sc-tab" onclick="selectScenario(3)">Night Shift</div><div class="sc-tab" onclick="selectScenario(4)">Emergency Peak</div><div class="sc-tab" onclick="selectScenario(5)">Optimal Config</div>
+  </div>
+  <div class="metric-grid" id="metricCards"></div>
+  <div class="chart-grid c2">
+    <div class="chart-box">
+      <div class="chart-label">Hourly Arrivals & Departures</div>
+      <div class="chart-wrap"><canvas id="hourlyChart"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-label">Avg Queue Length & Wait Time by Hour</div>
+      <div class="chart-wrap"><canvas id="queueChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 3: CROSS-SCENARIO COMPARISON -->
+<div class="section">
+  <div class="section-head">
+    <span class="section-num">03</span>
+    <span class="section-title">Cross-Scenario Comparison</span>
+    <span class="section-desc">Utilization · Wait time · Queue length across all configurations</span>
+  </div>
+  <div class="chart-grid c3" style="margin-bottom:16px;">
+    <div class="chart-box">
+      <div class="chart-label">Server Utilization (%)</div>
+      <div class="chart-wrap"><canvas id="utilChart"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-label">Avg Queue Length (Lq) — Analytical</div>
+      <div class="chart-wrap"><canvas id="lqChart"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-label">Avg Wait Time — Analytical vs Simulated</div>
+      <div class="chart-wrap"><canvas id="waitCompChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 4: FULL RESULTS TABLE -->
+<div class="section">
+  <div class="section-head">
+    <span class="section-num">04</span>
+    <span class="section-title">Complete Results Table</span>
+    <span class="section-desc">Analytical (M/M/c) vs Discrete-Event Simulation</span>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Scenario</th><th>λ/hr</th><th>μ/hr</th><th>c</th>
+        <th>Util%</th><th>Erlang C</th><th>Lq</th>
+        <th>Wq (anal.)</th><th>W (anal.)</th>
+        <th>Wq (sim.)</th><th>% Waited</th><th>Throughput</th><th>Status</th>
+      </tr></thead>
+      <tbody><tr>
+      <td class="mono accent">Morning Rush</td>
+      <td class="mono">12</td>
+      <td class="mono">5</td>
+      <td class="mono">3</td>
+      <td class="mono" style="color:#f59e0b">80.0%</td>
+      <td class="mono">0.6472</td>
+      <td class="mono">2.589</td>
+      <td class="mono">0.216</td>
+      <td class="mono">0.416</td>
+      <td class="mono">7.5</td>
+      <td class="mono">62.4%</td>
+      <td class="mono">11.6</td>
+      <td style="color:#10b981;font-family:var(--mono);font-size:11px;font-weight:600">Stable</td>
+    </tr><tr>
+      <td class="mono accent">Afternoon Calm</td>
+      <td class="mono">6</td>
+      <td class="mono">5</td>
+      <td class="mono">2</td>
+      <td class="mono" style="color:#10b981">60.0%</td>
+      <td class="mono">0.45</td>
+      <td class="mono">0.675</td>
+      <td class="mono">0.112</td>
+      <td class="mono">0.312</td>
+      <td class="mono">5.87</td>
+      <td class="mono">40.5%</td>
+      <td class="mono">4.6</td>
+      <td style="color:#10b981;font-family:var(--mono);font-size:11px;font-weight:600">Stable</td>
+    </tr><tr>
+      <td class="mono accent">Evening Surge</td>
+      <td class="mono">10</td>
+      <td class="mono">5</td>
+      <td class="mono">2</td>
+      <td class="mono" style="color:#10b981">—%</td>
+      <td class="mono">—</td>
+      <td class="mono">—</td>
+      <td class="mono">—</td>
+      <td class="mono">—</td>
+      <td class="mono">34.93</td>
+      <td class="mono">89.2%</td>
+      <td class="mono">8.1</td>
+      <td style="color:#ef4444;font-family:var(--mono);font-size:11px;font-weight:600">Unstable</td>
+    </tr><tr>
+      <td class="mono accent">Night Shift</td>
+      <td class="mono">3</td>
+      <td class="mono">5</td>
+      <td class="mono">1</td>
+      <td class="mono" style="color:#10b981">60.0%</td>
+      <td class="mono">0.6</td>
+      <td class="mono">0.9</td>
+      <td class="mono">0.3</td>
+      <td class="mono">0.5</td>
+      <td class="mono">4.85</td>
+      <td class="mono">45.0%</td>
+      <td class="mono">2.5</td>
+      <td style="color:#10b981;font-family:var(--mono);font-size:11px;font-weight:600">Stable</td>
+    </tr><tr>
+      <td class="mono accent">Emergency Peak</td>
+      <td class="mono">18</td>
+      <td class="mono">5</td>
+      <td class="mono">4</td>
+      <td class="mono" style="color:#ef4444">90.0%</td>
+      <td class="mono">0.7878</td>
+      <td class="mono">7.09</td>
+      <td class="mono">0.394</td>
+      <td class="mono">0.594</td>
+      <td class="mono">8.33</td>
+      <td class="mono">73.8%</td>
+      <td class="mono">18.6</td>
+      <td style="color:#10b981;font-family:var(--mono);font-size:11px;font-weight:600">Stable</td>
+    </tr><tr>
+      <td class="mono accent">Optimal Config</td>
+      <td class="mono">12</td>
+      <td class="mono">5</td>
+      <td class="mono">4</td>
+      <td class="mono" style="color:#10b981">60.0%</td>
+      <td class="mono">0.287</td>
+      <td class="mono">0.431</td>
+      <td class="mono">0.036</td>
+      <td class="mono">0.236</td>
+      <td class="mono">1.41</td>
+      <td class="mono">22.4%</td>
+      <td class="mono">10.6</td>
+      <td style="color:#10b981;font-family:var(--mono);font-size:11px;font-weight:600">Stable</td>
+    </tr></tbody>
+    </table>
+  </div>
+</div>
+
+<footer>
+  <div class="fn">Almas <span>Shahriar</span> · IPE BUET '26</div>
+  <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">Generated 2026-04-28 00:32 · M/M/c Queuing Simulation</div>
+  <div class="flinks">
+    <a href="https://www.linkedin.com/in/almasshahriar/" target="_blank">LinkedIn</a>
+    <a href="mailto:almasalif123@gmail.com">Email</a>
+    <a href="https://github.com/almasshahriar" target="_blank">GitHub</a>
+  </div>
+</footer>
+</div>
+
+<script>
+const RESULTS = [{"scenario": "Morning Rush", "label": "High demand, 3 servers", "lambda": 12, "mu": 5, "c": 3, "analytic": {"rho": 0.8, "p0": 0.0562, "C_erlang": 0.6472, "Lq": 2.589, "Wq": 12.94, "Wq_min": 0.216, "W_min": 0.416, "L": 4.989, "util_pct": 80.0}, "sim": {"n_patients": 93, "avg_wait_min": 7.5, "avg_sojourn": 18.91, "avg_svc": 11.41, "pct_waited": 62.4, "max_wait": 36.77, "throughput": 11.6}, "hourly": [{"hour": "7:00", "arrivals": 12, "departures": 11, "avg_queue": 0.0, "avg_wait": 0.0}, {"hour": "8:00", "arrivals": 14, "departures": 8, "avg_queue": 1.5, "avg_wait": 0.73}, {"hour": "9:00", "arrivals": 13, "departures": 13, "avg_queue": 6.69, "avg_wait": 24.31}, {"hour": "10:00", "arrivals": 7, "departures": 12, "avg_queue": 1.14, "avg_wait": 15.57}, {"hour": "11:00", "arrivals": 7, "departures": 5, "avg_queue": 0.14, "avg_wait": 0.0}, {"hour": "12:00", "arrivals": 13, "departures": 11, "avg_queue": 1.92, "avg_wait": 4.34}, {"hour": "13:00", "arrivals": 16, "departures": 18, "avg_queue": 2.56, "avg_wait": 9.76}, {"hour": "14:00", "arrivals": 16, "departures": 12, "avg_queue": 2.0, "avg_wait": 3.12}, {"hour": "15:00", "arrivals": 0, "departures": 0, "avg_queue": 0, "avg_wait": 0}], "stable": true}, {"scenario": "Afternoon Calm", "label": "Moderate demand, 2 servers", "lambda": 6, "mu": 5, "c": 2, "analytic": {"rho": 0.6, "p0": 0.25, "C_erlang": 0.45, "Lq": 0.675, "Wq": 6.75, "Wq_min": 0.112, "W_min": 0.312, "L": 1.875, "util_pct": 60.0}, "sim": {"n_patients": 37, "avg_wait_min": 5.87, "avg_sojourn": 22.58, "avg_svc": 16.71, "pct_waited": 40.5, "max_wait": 36.0, "throughput": 4.6}, "hourly": [{"hour": "7:00", "arrivals": 4, "departures": 3, "avg_queue": 0.75, "avg_wait": 8.04}, {"hour": "8:00", "arrivals": 3, "departures": 3, "avg_queue": 0.0, "avg_wait": 0.0}, {"hour": "9:00", "arrivals": 7, "departures": 4, "avg_queue": 1.0, "avg_wait": 6.9}, {"hour": "10:00", "arrivals": 4, "departures": 8, "avg_queue": 2.0, "avg_wait": 24.71}, {"hour": "11:00", "arrivals": 8, "departures": 6, "avg_queue": 0.5, "avg_wait": 3.18}, {"hour": "12:00", "arrivals": 5, "departures": 7, "avg_queue": 0.4, "avg_wait": 0.26}, {"hour": "13:00", "arrivals": 3, "departures": 1, "avg_queue": 0.0, "avg_wait": 0.0}, {"hour": "14:00", "arrivals": 3, "departures": 4, "avg_queue": 0.33, "avg_wait": 3.74}, {"hour": "15:00", "arrivals": 0, "departures": 0, "avg_queue": 0, "avg_wait": 0}], "stable": true}, {"scenario": "Evening Surge", "label": "High demand, 2 servers (understaffed)", "lambda": 10, "mu": 5, "c": 2, "analytic": null, "sim": {"n_patients": 65, "avg_wait_min": 34.93, "avg_sojourn": 48.5, "avg_svc": 13.57, "pct_waited": 89.2, "max_wait": 73.39, "throughput": 8.1}, "hourly": [{"hour": "7:00", "arrivals": 6, "departures": 5, "avg_queue": 0.5, "avg_wait": 2.72}, {"hour": "8:00", "arrivals": 13, "departures": 10, "avg_queue": 1.77, "avg_wait": 5.67}, {"hour": "9:00", "arrivals": 10, "departures": 8, "avg_queue": 4.4, "avg_wait": 16.76}, {"hour": "10:00", "arrivals": 6, "departures": 6, "avg_queue": 5.17, "avg_wait": 44.5}, {"hour": "11:00", "arrivals": 11, "departures": 7, "avg_queue": 7.0, "avg_wait": 22.47}, {"hour": "12:00", "arrivals": 10, "departures": 8, "avg_queue": 9.3, "avg_wait": 47.85}, {"hour": "13:00", "arrivals": 10, "departures": 11, "avg_queue": 11.1, "avg_wait": 56.33}, {"hour": "14:00", "arrivals": 19, "departures": 8, "avg_queue": 14.26, "avg_wait": 24.06}, {"hour": "15:00", "arrivals": 0, "departures": 0, "avg_queue": 0, "avg_wait": 0}], "stable": false}, {"scenario": "Night Shift", "label": "Low demand, 1 server", "lambda": 3, "mu": 5, "c": 1, "analytic": {"rho": 0.6, "p0": 0.4, "C_erlang": 0.6, "Lq": 0.9, "Wq": 18.0, "Wq_min": 0.3, "W_min": 0.5, "L": 1.5, "util_pct": 60.0}, "sim": {"n_patients": 20, "avg_wait_min": 4.85, "avg_sojourn": 17.33, "avg_svc": 12.48, "pct_waited": 45.0, "max_wait": 34.87, "throughput": 2.5}, "hourly": [{"hour": "7:00", "arrivals": 3, "departures": 1, "avg_queue": 0.33, "avg_wait": 0.0}, {"hour": "8:00", "arrivals": 2, "departures": 4, "avg_queue": 0.0, "avg_wait": 3.8}, {"hour": "9:00", "arrivals": 4, "departures": 4, "avg_queue": 1.5, "avg_wait": 9.57}, {"hour": "10:00", "arrivals": 2, "departures": 1, "avg_queue": 0.5, "avg_wait": 5.22}, {"hour": "11:00", "arrivals": 2, "departures": 1, "avg_queue": 0.5, "avg_wait": 0.0}, {"hour": "12:00", "arrivals": 2, "departures": 4, "avg_queue": 0.5, "avg_wait": 18.22}, {"hour": "13:00", "arrivals": 1, "departures": 1, "avg_queue": 0.0, "avg_wait": 0.0}, {"hour": "14:00", "arrivals": 4, "departures": 4, "avg_queue": 0.5, "avg_wait": 1.08}, {"hour": "15:00", "arrivals": 0, "departures": 0, "avg_queue": 0, "avg_wait": 0}], "stable": true}, {"scenario": "Emergency Peak", "label": "Peak load, 4 servers", "lambda": 18, "mu": 5, "c": 4, "analytic": {"rho": 0.9, "p0": 0.0113, "C_erlang": 0.7878, "Lq": 7.09, "Wq": 23.63, "Wq_min": 0.394, "W_min": 0.594, "L": 10.69, "util_pct": 90.0}, "sim": {"n_patients": 149, "avg_wait_min": 8.33, "avg_sojourn": 20.56, "avg_svc": 12.24, "pct_waited": 73.8, "max_wait": 35.05, "throughput": 18.6}, "hourly": [{"hour": "7:00", "arrivals": 29, "departures": 20, "avg_queue": 2.45, "avg_wait": 3.22}, {"hour": "8:00", "arrivals": 19, "departures": 19, "avg_queue": 7.63, "avg_wait": 20.06}, {"hour": "9:00", "arrivals": 13, "departures": 16, "avg_queue": 4.38, "avg_wait": 26.36}, {"hour": "10:00", "arrivals": 16, "departures": 19, "avg_queue": 1.44, "avg_wait": 4.89}, {"hour": "11:00", "arrivals": 24, "departures": 20, "avg_queue": 1.58, "avg_wait": 2.82}, {"hour": "12:00", "arrivals": 19, "departures": 18, "avg_queue": 1.21, "avg_wait": 2.64}, {"hour": "13:00", "arrivals": 15, "departures": 16, "avg_queue": 2.8, "avg_wait": 8.21}, {"hour": "14:00", "arrivals": 17, "departures": 17, "avg_queue": 1.41, "avg_wait": 6.13}, {"hour": "15:00", "arrivals": 0, "departures": 0, "avg_queue": 0, "avg_wait": 0}], "stable": true}, {"scenario": "Optimal Config", "label": "High demand, 4 servers (optimized)", "lambda": 12, "mu": 5, "c": 4, "analytic": {"rho": 0.6, "p0": 0.0831, "C_erlang": 0.287, "Lq": 0.431, "Wq": 2.15, "Wq_min": 0.036, "W_min": 0.236, "L": 2.831, "util_pct": 60.0}, "sim": {"n_patients": 85, "avg_wait_min": 1.41, "avg_sojourn": 14.89, "avg_svc": 13.47, "pct_waited": 22.4, "max_wait": 18.43, "throughput": 10.6}, "hourly": [{"hour": "7:00", "arrivals": 8, "departures": 7, "avg_queue": 0.0, "avg_wait": 0.0}, {"hour": "8:00", "arrivals": 10, "departures": 8, "avg_queue": 0.2, "avg_wait": 0.12}, {"hour": "9:00", "arrivals": 7, "departures": 7, "avg_queue": 0.0, "avg_wait": 0.0}, {"hour": "10:00", "arrivals": 11, "departures": 12, "avg_queue": 0.18, "avg_wait": 0.22}, {"hour": "11:00", "arrivals": 14, "departures": 12, "avg_queue": 1.57, "avg_wait": 6.06}, {"hour": "12:00", "arrivals": 12, "departures": 15, "avg_queue": 0.83, "avg_wait": 2.64}, {"hour": "13:00", "arrivals": 13, "departures": 11, "avg_queue": 0.0, "avg_wait": 0.0}, {"hour": "14:00", "arrivals": 10, "departures": 11, "avg_queue": 0.0, "avg_wait": 0.0}, {"hour": "15:00", "arrivals": 0, "departures": 0, "avg_queue": 0, "avg_wait": 0}], "stable": true}];
+const SC_NAMES = ["Morning Rush", "Afternoon Calm", "Evening Surge", "Night Shift", "Emergency Peak", "Optimal Config"];
+const HOURS = ["7:00", "8:00", "9:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00"];
+
+const C = {
+  accent:'#6366f1', a2:'#06b6d4', green:'#22d3ee',
+  red:'#f43f5e', yellow:'#fbbf24', orange:'#fb923c',
+  muted:'#4a5680', grid:'rgba(26,34,54,0.9)'
+};
+
+Chart.defaults.color = C.muted;
+Chart.defaults.borderColor = C.grid;
+Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+Chart.defaults.font.size = 10;
+
+const baseOpts = () => ({
+  responsive:true, maintainAspectRatio:false,
+  plugins:{
+    legend:{display:true,labels:{boxWidth:8,padding:12,color:C.muted}},
+    tooltip:{backgroundColor:'#0b0f1a',borderColor:'#222d45',borderWidth:1,
+      titleColor:C.accent,bodyColor:'#e2e8f8',padding:10}
+  },
+  scales:{
+    x:{grid:{color:C.grid},ticks:{color:C.muted}},
+    y:{grid:{color:C.grid},ticks:{color:C.muted}}
+  }
+});
+
+// ── CROSS-SCENARIO CHARTS ──
+const stableResults = RESULTS.filter(r => r.stable);
+const allNames = RESULTS.map(r => r.scenario);
+
+// Utilization
+new Chart(document.getElementById('utilChart'), {
+  type:'bar',
+  data:{
+    labels: allNames,
+    datasets:[{
+      label:'Utilization %',
+      data: RESULTS.map(r => r.analytic ? r.analytic.util_pct : null),
+      backgroundColor: RESULTS.map(r => {
+        const u = r.analytic ? r.analytic.util_pct : 0;
+        return u >= 90 ? 'rgba(244,63,94,0.35)' : u >= 75 ? 'rgba(251,191,36,0.35)' : 'rgba(34,211,238,0.3)';
+      }),
+      borderColor: RESULTS.map(r => {
+        const u = r.analytic ? r.analytic.util_pct : 0;
+        return u >= 90 ? C.red : u >= 75 ? C.yellow : C.green;
+      }),
+      borderWidth:1
+    }]
+  },
+  options:{...baseOpts(), scales:{
+    x:{grid:{color:C.grid},ticks:{color:C.muted,maxRotation:30}},
+    y:{grid:{color:C.grid},ticks:{color:C.muted,callback:v=>v+'%'},max:120}
+  }}
+});
+
+// Lq
+new Chart(document.getElementById('lqChart'), {
+  type:'bar',
+  data:{
+    labels: allNames,
+    datasets:[{
+      label:'Avg Queue (Lq)',
+      data: RESULTS.map(r => r.analytic ? r.analytic.Lq : null),
+      backgroundColor:'rgba(99,102,241,0.3)', borderColor:C.accent, borderWidth:1
+    }]
+  },
+  options:{...baseOpts(), scales:{
+    x:{grid:{color:C.grid},ticks:{color:C.muted,maxRotation:30}},
+    y:{grid:{color:C.grid},ticks:{color:C.muted}}
+  }}
+});
+
+// Wait comparison
+new Chart(document.getElementById('waitCompChart'), {
+  type:'bar',
+  data:{
+    labels: allNames,
+    datasets:[
+      {label:'Analytical Wq (min)', data:RESULTS.map(r=>r.analytic?r.analytic.Wq_min:null),
+        backgroundColor:'rgba(99,102,241,0.3)',borderColor:C.accent,borderWidth:1},
+      {label:'Simulated Wq (min)', data:RESULTS.map(r=>r.sim?r.sim.avg_wait_min:null),
+        backgroundColor:'rgba(6,182,212,0.3)',borderColor:C.a2,borderWidth:1}
+    ]
+  },
+  options:{...baseOpts(), scales:{
+    x:{grid:{color:C.grid},ticks:{color:C.muted,maxRotation:30}},
+    y:{grid:{color:C.grid},ticks:{color:C.muted}}
+  }}
+});
+
+// ── SCENARIO DRILL-DOWN ──
+let hourlyChart = null, queueChart = null;
+
+function selectScenario(idx) {
+  document.querySelectorAll('.sc-tab').forEach((t,i) => t.classList.toggle('active', i===idx));
+  const r = RESULTS[idx];
+  const a = r.analytic || {};
+  const s = r.sim || {};
+  const hourly = r.hourly || [];
+
+  // Metric cards
+  const mc = document.getElementById('metricCards');
+  const util = a.util_pct || 0;
+  const utilColor = util >= 90 ? C.red : util >= 75 ? C.yellow : C.green;
+  mc.innerHTML = `
+    <div class="metric-card">
+      <div class="metric-label">Server Utilization</div>
+      <div class="metric-val" style="color:${utilColor}">${util}%</div>
+      <div class="metric-sub">ρ = ${a.rho || '—'}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Analytical Wq</div>
+      <div class="metric-val">${a.Wq_min || '—'} min</div>
+      <div class="metric-sub">avg queue wait</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Simulated Wq</div>
+      <div class="metric-val">${s.avg_wait_min || '—'} min</div>
+      <div class="metric-sub">${s.pct_waited || '—'}% of patients waited</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Throughput</div>
+      <div class="metric-val">${s.throughput || '—'}</div>
+      <div class="metric-sub">patients/hour served</div>
+    </div>`;
+
+  // Hourly arrivals chart
+  if (hourlyChart) hourlyChart.destroy();
+  hourlyChart = new Chart(document.getElementById('hourlyChart'), {
+    type:'bar',
+    data:{
+      labels: hourly.map(h=>h.hour),
+      datasets:[
+        {label:'Arrivals', data:hourly.map(h=>h.arrivals),
+          backgroundColor:'rgba(99,102,241,0.3)',borderColor:C.accent,borderWidth:1},
+        {label:'Departures', data:hourly.map(h=>h.departures),
+          backgroundColor:'rgba(6,182,212,0.3)',borderColor:C.a2,borderWidth:1}
+      ]
+    },
+    options: baseOpts()
+  });
+
+  // Queue + wait chart
+  if (queueChart) queueChart.destroy();
+  queueChart = new Chart(document.getElementById('queueChart'), {
+    type:'line',
+    data:{
+      labels: hourly.map(h=>h.hour),
+      datasets:[
+        {label:'Avg Queue Length', data:hourly.map(h=>h.avg_queue),
+          borderColor:C.accent,backgroundColor:'rgba(99,102,241,0.1)',
+          borderWidth:2,fill:true,tension:0.4,pointRadius:3,yAxisID:'y'},
+        {label:'Avg Wait (min)', data:hourly.map(h=>h.avg_wait),
+          borderColor:C.orange,backgroundColor:'rgba(251,146,60,0.1)',
+          borderWidth:2,fill:false,tension:0.4,pointRadius:3,yAxisID:'y1'}
+      ]
+    },
+    options:{...baseOpts(), scales:{
+      x:{grid:{color:C.grid},ticks:{color:C.muted}},
+      y:{grid:{color:C.grid},ticks:{color:C.muted},title:{display:true,text:'Queue Length',color:C.muted}},
+      y1:{position:'right',grid:{drawOnChartArea:false},
+        ticks:{color:C.muted},title:{display:true,text:'Wait (min)',color:C.muted}}
+    }}
+  });
+}
+
+selectScenario(0);
+</script>
+</body>
+</html>
